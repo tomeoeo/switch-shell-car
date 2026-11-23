@@ -1,0 +1,14 @@
+# Test-only deps for tests-ha (Home Assistant 2026.2.3 via the pytest plugin + bluetooth/usb requirements).
+aiousbwatcher==1.1.1
+bleak==2.1.1
+bleak-retry-connector==4.4.3
+bluetooth-adapters==2.1.0
+bluetooth-auto-recovery==1.5.3
+bluetooth-data-tools==1.28.4
+dbus-fast==3.1.2
+fnv-hash-fast==1.6.0
+habluetooth==5.8.0
+psutil-home-assistant==0.0.1
+pyserial==3.5
+pytest-homeassistant-custom-component==0.13.316
+SQLAlchemy==2.0.41

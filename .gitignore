@@ -1,0 +1,13 @@
+# builds
+build/
+build-host/
+dist/
+*.nro
+*.nacp
+*.elf
+research/nxjs-spike/app/romfs/
+
+# tooling
+node_modules/
+.npm-cache/
+__pycache__/

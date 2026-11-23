@@ -1,0 +1,81 @@
+name: build
+
+on:
+  push:
+    branches: ["**"]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+  # Publishing a release in the GitHub UI (with a new v* tag) builds and
+  # attaches shellrc.nro and shell_rc-ha.zip to it.
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  switch:
+    name: Switch app (C/libnx)
+    runs-on: ubuntu-24.04
+    container: devkitpro/devkita64:20260219
+    steps:
+      - uses: actions/checkout@v4
+      - name: Core tests (host gcc)
+        env:
+          ASAN_OPTIONS: detect_leaks=0  # LeakSanitizer needs ptrace, not always allowed in CI containers
+        run: |
+          mkdir -p build-host
+          gcc -std=c11 -O2 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -o build-host/test_core tests-c/test_core.c core/*.c -lm
+          ./build-host/test_core
+      - name: Build shellrc.nro
+        run: make -C nx
+      - uses: actions/upload-artifact@v4
+        with:
+          name: shellrc-nro
+          path: nx/shellrc.nro
+
+  home-assistant:
+    name: Home Assistant integration
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: pip install -r tests-ha/requirements.txt
+      - run: python -m pytest -c tests-ha/pytest.ini --rootdir tests-ha tests-ha -q -p no:cacheprovider
+      - name: Package
+        run: |
+          mkdir -p dist
+          git archive --format=zip -o dist/shell_rc-ha.zip HEAD:custom_components shell_rc
+      - uses: actions/upload-artifact@v4
+        with:
+          name: shell_rc-ha
+          path: dist/shell_rc-ha.zip
+
+  release:
+    name: GitHub release
+    # Tag push or a release published in the UI; both carry refs/tags/v*.
+    # concurrency below keeps the two from uploading at the same time.
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [switch, home-assistant]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    concurrency:
+      group: release-${{ github.ref }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/shellrc.nro
+            dist/shell_rc-ha.zip
+          body_path: .github/release-body.md
+          overwrite_files: true

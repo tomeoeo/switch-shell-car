@@ -1,0 +1,97 @@
+{
+  "config": {
+    "flow_title": "{name}",
+    "step": {
+      "user": {
+        "description": "Pick a Shell RC car. It must be switched on and not connected to a phone or the Switch.",
+        "data": {
+          "address": "Car"
+        }
+      },
+      "bluetooth_confirm": {
+        "description": "Set up {name}?"
+      }
+    },
+    "abort": {
+      "already_configured": "This car is already configured.",
+      "no_devices_found": "No Shell RC cars found. Switch the car on and try again.",
+      "not_supported": "Not a Shell RC car."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "data": {
+          "battery_interval": "Battery check interval (minutes, 0 = off)"
+        },
+        "description": "Every interval Home Assistant connects briefly to read the battery (only while the car is visible)."
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "battery": {
+        "name": "Battery"
+      },
+      "battery_checked": {
+        "name": "Battery checked"
+      },
+      "last_seen": {
+        "name": "Last seen"
+      },
+      "rssi": {
+        "name": "Signal strength"
+      },
+      "status": {
+        "name": "Status",
+        "state": {
+          "idle": "Idle",
+          "connecting": "Connecting",
+          "cat": "Cat mode",
+          "battery_check": "Checking battery",
+          "unreachable": "Unreachable",
+          "error": "Error"
+        }
+      }
+    },
+    "binary_sensor": {
+      "visible": {
+        "name": "Visible",
+        "state": {
+          "on": "Yes",
+          "off": "No"
+        }
+      },
+      "connected": {
+        "name": "Connected"
+      }
+    },
+    "switch": {
+      "cat_mode": {
+        "name": "Cat mode"
+      },
+      "lights": {
+        "name": "Lights"
+      }
+    },
+    "button": {
+      "check_battery": {
+        "name": "Check battery"
+      },
+      "stop": {
+        "name": "Stop"
+      }
+    },
+    "number": {
+      "cat_seconds": {
+        "name": "Cat mode duration"
+      },
+      "cat_min": {
+        "name": "Cat mode minimum speed"
+      },
+      "cat_max": {
+        "name": "Cat mode maximum speed"
+      }
+    }
+  }
+}

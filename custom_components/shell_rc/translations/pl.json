@@ -1,0 +1,97 @@
+{
+  "config": {
+    "flow_title": "{name}",
+    "step": {
+      "user": {
+        "description": "Wybierz auto Shell RC. Musi być włączone i niepołączone z telefonem ani Switchem.",
+        "data": {
+          "address": "Auto"
+        }
+      },
+      "bluetooth_confirm": {
+        "description": "Dodać {name}?"
+      }
+    },
+    "abort": {
+      "already_configured": "To auto jest już skonfigurowane.",
+      "no_devices_found": "Nie znaleziono aut Shell RC. Włącz auto i spróbuj ponownie.",
+      "not_supported": "To nie jest auto Shell RC."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "data": {
+          "battery_interval": "Co ile minut sprawdzać baterię (0 = wyłączone)"
+        },
+        "description": "Co ten czas Home Assistant łączy się na chwilę z autem, żeby odczytać baterię (tylko gdy auto jest widoczne)."
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "battery": {
+        "name": "Bateria"
+      },
+      "battery_checked": {
+        "name": "Pomiar baterii"
+      },
+      "last_seen": {
+        "name": "Ostatnio widziane"
+      },
+      "rssi": {
+        "name": "Siła sygnału"
+      },
+      "status": {
+        "name": "Stan",
+        "state": {
+          "idle": "Czeka",
+          "connecting": "Łączenie",
+          "cat": "Tryb kot",
+          "battery_check": "Pomiar baterii",
+          "unreachable": "Niedostępne",
+          "error": "Błąd"
+        }
+      }
+    },
+    "binary_sensor": {
+      "visible": {
+        "name": "Widoczne",
+        "state": {
+          "on": "Tak",
+          "off": "Nie"
+        }
+      },
+      "connected": {
+        "name": "Połączone"
+      }
+    },
+    "switch": {
+      "cat_mode": {
+        "name": "Tryb kot"
+      },
+      "lights": {
+        "name": "Światła"
+      }
+    },
+    "button": {
+      "check_battery": {
+        "name": "Sprawdź baterię"
+      },
+      "stop": {
+        "name": "Stop"
+      }
+    },
+    "number": {
+      "cat_seconds": {
+        "name": "Czas trybu kot"
+      },
+      "cat_min": {
+        "name": "Tryb kot: minimalna prędkość"
+      },
+      "cat_max": {
+        "name": "Tryb kot: maksymalna prędkość"
+      }
+    }
+  }
+}
