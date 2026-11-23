@@ -1,4 +1,25 @@
-# Zmiany
+# Changelog / Zmiany
+
+## 1.1.0 — 2026-11-23
+
+### English
+- The Switch app speaks English: English is the default for new installs, ZL on the car list
+  switches between English and Polish, and the choice is saved as `lang` in `config.json`.
+  Existing configs (from 1.0.0) stay Polish until you press ZL.
+- `GET /status` keeps the same `state` values in both languages.
+- English documentation: [README.md](README.md), [docs/switch.md](docs/switch.md),
+  [docs/home-assistant.md](docs/home-assistant.md), [docs/protocol.md](docs/protocol.md).
+  The Polish versions moved to `*.pl.md`.
+- Bilingual contributing guide, issue templates and release notes.
+
+### Polski
+- Aplikacja na Switcha mówi po angielsku: nowe instalacje startują po angielsku, ZL na liście
+  aut przełącza angielski i polski, a wybór zapisuje się jako `lang` w `config.json`.
+  Istniejące konfiguracje (z 1.0.0) zostają po polsku, dopóki nie naciśniesz ZL.
+- `GET /status` zwraca te same wartości `state` w obu językach.
+- Dokumentacja po angielsku. Polskie wersje są teraz w plikach `*.pl.md`
+  ([README.pl.md](README.pl.md)).
+- Dwujęzyczne CONTRIBUTING, szablony zgłoszeń i opis wydania.
 
 ## 1.0.0 — 2026-11-23
 

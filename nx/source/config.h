@@ -26,6 +26,9 @@ typedef struct {
 	// standby (keep_awake on, on the car list): every N minutes connect
 	// briefly, read the battery, disconnect. 0 = off.
 	int standby_minutes;
+	// UI language "pl" or "en". New installs: en (the Switch has no Polish
+	// system language to detect); configs from before 1.1.0 stay pl.
+	char lang[3];
 } Config;
 
 void config_load(Config *c);

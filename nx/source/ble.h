@@ -1,6 +1,6 @@
 // BLE for the Shell module on the Switch (libnx btm.u + bt + btdrv).
 //
-// What works (measured 2026-11-22, docs/faza1-wyniki.md):
+// What works (measured 2026-11-22, docs/research/faza1-wyniki.md):
 //  - btm.u application scans never report the module -> we scan raw:
 //    btdrv with filters disabled, busy-polling btdrvGetBleManagedEventInfo
 //    (btm-sysmodule consumes most events, so poll without sleeping).

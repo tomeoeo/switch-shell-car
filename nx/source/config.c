@@ -63,6 +63,7 @@ void config_load(Config *c) {
 	c->http_port = 0; // off: Home Assistant users have the shell_rc integration
 	c->keep_awake = false;
 	c->standby_minutes = 15;
+	strcpy(c->lang, "en");
 
 	FILE *f = fopen(CONFIG_PATH, "r");
 	if (!f) {
@@ -73,6 +74,7 @@ void config_load(Config *c) {
 	size_t n = fread(buf, 1, sizeof(buf) - 1, f);
 	fclose(f);
 	buf[n] = 0;
+	strcpy(c->lang, "pl"); // a config without "lang" predates 1.1.0 (Polish only)
 
 	const char *v = find_value(buf, "deviceId");
 	if (v && *v == '"')
@@ -89,6 +91,9 @@ void config_load(Config *c) {
 		c->cat_lo = c->cat_hi;
 	read_int(buf, "httpPort", 0, 65535, &c->http_port);
 	read_int(buf, "standbyMinutes", 0, 1440, &c->standby_minutes);
+	v = find_value(buf, "lang");
+	if (v && (!strncmp(v, "\"en\"", 4) || !strncmp(v, "\"pl\"", 4)))
+		memcpy(c->lang, v + 1, 2), c->lang[2] = 0;
 	v = find_value(buf, "keepAwake");
 	if (v)
 		c->keep_awake = !strncmp(v, "true", 4);
@@ -129,6 +134,6 @@ void config_save(const Config *c) {
 	        c->cat_lo, c->cat_hi);
 	fprintf(f, "  \"httpPort\": %d,\n  \"token\": \"%s\",\n  \"keepAwake\": %s,\n", c->http_port,
 	        c->token, c->keep_awake ? "true" : "false");
-	fprintf(f, "  \"standbyMinutes\": %d\n}\n", c->standby_minutes);
+	fprintf(f, "  \"standbyMinutes\": %d,\n  \"lang\": \"%s\"\n}\n", c->standby_minutes, c->lang);
 	fclose(f);
 }

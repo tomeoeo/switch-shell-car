@@ -6,6 +6,7 @@
 
 #include "config.h"
 #include "log.h"
+#include "ui.h"
 
 // 0000fff0-0000-1000-8000-00805f9b34fb as a 16-bit UUID (little-endian).
 static const u8 FFF0_16[2] = {0xf0, 0xff};
@@ -301,7 +302,7 @@ Result ble_connect(const BtdrvAddress *addr, BleLink *out, int timeout_ms, char 
 		}
 	}
 	if (h == 0xFFFFFFFF) {
-		snprintf(err, errlen, "brak polaczenia po %d ms", timeout_ms);
+		snprintf(err, errlen, TR("brak polaczenia po %d ms", "no connection after %d ms"), timeout_ms);
 		log_msg("connect %s: timeout", a);
 		return MAKERESULT(Module_Libnx, LibnxError_Timeout);
 	}
@@ -352,7 +353,7 @@ Result ble_connect(const BtdrvAddress *addr, BleLink *out, int timeout_ms, char 
 	        have_ctrl ? "tak" : "NIE", out->has_batt ? "tak" : "nie", out->has_cccd ? "tak" : "nie",
 	        ms_since(t0));
 	if (!have_ctrl) {
-		snprintf(err, errlen, "brak charakterystyki sterowania");
+		snprintf(err, errlen, "%s", TR("brak charakterystyki sterowania", "no control characteristic"));
 		btmuBleDisconnect(h);
 		return MAKERESULT(Module_Libnx, LibnxError_NotFound);
 	}

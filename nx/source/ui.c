@@ -5,7 +5,8 @@
 //    grows right in signal yellow), mirroring the stick.
 //  - The top band's color *is* the connection state (mint / yellow / red).
 //  - Buttons look like keycaps; everything secondary is muted teal.
-//  - ASCII only: the libnx console font has no Polish letters.
+//  - ASCII only: the libnx console font has no Polish letters. Polish and
+//    English strings side by side via TR(pl, en).
 //  - Hierarchy by color only: libnx ignores bold for 24-bit colors.
 // libnx wraps lazily (scrolls only when a character follows the last
 // column), so every write starts with a cursor move and the last cell is safe.
@@ -14,6 +15,8 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
+
+bool g_ui_english = false;
 
 typedef struct {
 	uint8_t r, g, b;
@@ -118,16 +121,17 @@ static int signal_level(int rssi) {
 }
 
 void ui_draw_list(const UiList *s) {
-	band(PANEL, false, "Shell RC", "wybierz auto ");
+	band(PANEL, false, "Shell RC", TR("wybierz auto ", "choose a car "));
 	blank(2);
 	blank(3);
 	if (s->scanning) {
 		static const char spin[] = "|/-\\";
 		put(3, 3, YELLOW, BASE, "%c", spin[(s->frame / 2) % 4]);
-		put(3, 5, TEXT, BASE, "Szukam aut w poblizu...");
+		put(3, 5, TEXT, BASE, "%s", TR("Szukam aut w poblizu...", "Looking for cars nearby..."));
 	} else {
-		put(3, 3, TEXT, BASE, "Znalezione auta: %d", s->ncars);
-		put(3, 30, MUTED, BASE, "inne urzadzenia Bluetooth w poblizu: %d", s->others);
+		put(3, 3, TEXT, BASE, "%s %d", TR("Znalezione auta:", "Cars found:"), s->ncars);
+		put(3, 30, MUTED, BASE, "%s %d", TR("inne urzadzenia Bluetooth w poblizu:", "other Bluetooth devices nearby:"),
+		    s->others);
 	}
 	blank(4);
 
@@ -144,7 +148,7 @@ void ui_draw_list(const UiList *s) {
 		}
 		put(row, 5, TEXT, b, "%s", c->name);
 		if (c->last_used)
-			put(row, 5 + (int)strlen(c->name) + 2, MINT, b, "ostatnio uzywane");
+			put(row, 5 + (int)strlen(c->name) + 2, MINT, b, "%s", TR("ostatnio uzywane", "last used"));
 		put(row + 1, 5, MUTED, b, "%s", c->addr);
 		int lvl = signal_level(c->rssi);
 		put(row, 60, MUTED, b, "%4d dBm", c->rssi);
@@ -156,8 +160,10 @@ void ui_draw_list(const UiList *s) {
 		blank(row);
 		blank(row + 1);
 		if (!s->scanning) {
-			put(row, 3, TEXT, BASE, "Nie widze zadnego auta.");
-			put(row + 1, 3, MUTED, BASE, "Wlacz modul w aucie i nacisnij Y, zeby poszukac jeszcze raz.");
+			put(row, 3, TEXT, BASE, "%s", TR("Nie widze zadnego auta.", "No cars in sight."));
+			put(row + 1, 3, MUTED, BASE, "%s",
+			    TR("Wlacz modul w aucie i nacisnij Y, zeby poszukac jeszcze raz.",
+			       "Switch the car's module on and press Y to look again."));
 		}
 		row += 2;
 	}
@@ -174,23 +180,28 @@ void ui_draw_list(const UiList *s) {
 	blank(38);
 	int c = 3;
 	c = key(38, c, "A");
-	c = put(38, c, TEXT, BASE, "jedz    ");
+	c = put(38, c, TEXT, BASE, "%s", TR("jedz    ", "drive    "));
 	c = key(38, c, "X");
-	c = put(38, c, TEXT, BASE, "tryb kot    ");
+	c = put(38, c, TEXT, BASE, "%s", TR("tryb kot    ", "cat mode    "));
 	c = key(38, c, "Y");
-	c = put(38, c, TEXT, BASE, "szukaj    ");
+	c = put(38, c, TEXT, BASE, "%s", TR("szukaj    ", "search    "));
 	c = key(38, c, "-");
-	c = put(38, c, TEXT, BASE, "czuwanie    ");
+	c = put(38, c, TEXT, BASE, "%s", TR("czuwanie    ", "stay awake    "));
 	c = key(38, c, "+");
-	put(38, c, TEXT, BASE, "wyjdz");
-	for (int r = 39; r <= 41; r++)
-		blank(r);
+	put(38, c, TEXT, BASE, "%s", TR("wyjdz", "exit"));
+	blank(39);
+	blank(40);
+	c = key(40, 3, "ZL");
+	put(40, c, MUTED, BASE, "%s", TR("English", "Polski"));
+	blank(41);
 	blank(42);
 	if (s->ha && s->ha[0])
 		put(42, 3, MUTED, BASE, "%s", s->ha);
 	blank(43);
 	blank(44);
-	put(44, 3, MUTED, BASE, "Telefon nie moze byc w tym czasie polaczony z autem.");
+	put(44, 3, MUTED, BASE, "%s",
+	    TR("Telefon nie moze byc w tym czasie polaczony z autem.",
+	       "The phone must not be connected to the car at the same time."));
 	put(44, UI_COLS - 1 - (int)strlen(s->version), MUTED, BASE, "%s", s->version);
 	blank(45);
 }
@@ -206,9 +217,11 @@ static void gauge(const UiDrive *s) {
 		rev = 1;
 	const int center = GAUGE_L + GAUGE_HALF; // first forward column (41)
 	blank(4);
-	put(4, GAUGE_L, MUTED, BASE, "wstecz");
-	put(4, center - 2, MUTED, BASE, "gaz");
-	put(4, GAUGE_L + 2 * GAUGE_HALF - 5, MUTED, BASE, "przod");
+	const char *rev_l = TR("wstecz", "reverse"), *mid_l = TR("gaz", "throttle"),
+	           *fwd_l = TR("przod", "forward");
+	put(4, GAUGE_L, MUTED, BASE, "%s", rev_l);
+	put(4, center - (int)strlen(mid_l) / 2, MUTED, BASE, "%s", mid_l);
+	put(4, GAUGE_L + 2 * GAUGE_HALF - (int)strlen(fwd_l), MUTED, BASE, "%s", fwd_l);
 	for (int r = 5; r <= 9; r++) {
 		blank(r);
 		fill(r, GAUGE_L, 2 * GAUGE_HALF, PANEL);
@@ -230,7 +243,7 @@ static void gauge(const UiDrive *s) {
 
 static void steering(int row, int steer) {
 	static const char *labels[3] = {" <<< ", "  |  ", " >>> "};
-	put(row, 50, MUTED, BASE, "skret");
+	put(row, 50, MUTED, BASE, "%s", TR("skret", "steer"));
 	for (int i = 0; i < 3; i++) {
 		bool on = steer == i - 1;
 		bool turn = on && i != 1; // only an actual turn is highlighted
@@ -241,9 +254,9 @@ static void steering(int row, int steer) {
 void ui_draw_drive(const UiDrive *s) {
 	char right[48] = "";
 	if (s->battery >= 0)
-		snprintf(right, sizeof(right), "bateria %d%% ", s->battery);
+		snprintf(right, sizeof(right), "%s %d%% ", TR("bateria", "battery"), s->battery);
 	else
-		snprintf(right, sizeof(right), "bateria ? ");
+		snprintf(right, sizeof(right), "%s ? ", TR("bateria", "battery"));
 	char left[64];
 	snprintf(left, sizeof(left), "%s   %s", s->state, s->name);
 	Rgb band_color = tone_color(s->state_tone);
@@ -262,42 +275,52 @@ void ui_draw_drive(const UiDrive *s) {
 	blank(12);
 	if (s->throttle)
 		put(12, GAUGE_L, s->throttle > 0 ? YELLOW : RED, BASE, "%3d%%  %s", s->speed,
-		    s->throttle > 0 ? "do przodu" : "do tylu");
+		    s->throttle > 0 ? TR("do przodu", "forward") : TR("do tylu", "reverse"));
 	else
-		put(12, GAUGE_L, MUTED, BASE, "  0%%  stoi");
+		put(12, GAUGE_L, MUTED, BASE, "  0%%  %s", TR("stoi", "stopped"));
 	steering(12, s->steer);
 	blank(13);
 
 	blank(14);
-	int c = put(14, GAUGE_L, MUTED, BASE, "bieg ");
+	int c = put(14, GAUGE_L, MUTED, BASE, "%s ", TR("bieg", "gear"));
 	c = put(14, c, TEXT, BASE, "%d/4", s->gear);
-	c = put(14, c, MUTED, BASE, " (do %d%%)      prog ruszania ", s->gear_cap);
+	c = put(14, c, MUTED, BASE, " (%s %d%%)      %s ", TR("do", "max"), s->gear_cap,
+	        TR("prog ruszania", "start threshold"));
 	c = put(14, c, TEXT, BASE, "%d%%", s->min_speed);
-	c = put(14, c, MUTED, BASE, "      swiatla ");
-	put(14, c, s->lights ? YELLOW : TEXT, BASE, "%s", s->lights ? "wlaczone" : "wylaczone");
+	c = put(14, c, MUTED, BASE, "      %s ", TR("swiatla", "lights"));
+	put(14, c, s->lights ? YELLOW : TEXT, BASE, "%s",
+	    s->lights ? TR("wlaczone", "on") : TR("wylaczone", "off"));
 	blank(15);
 
 	// What the car is doing and why.
 	char msg[96] = "";
 	UiTone tone = UI_TONE_NEUTRAL;
 	if (s->paused) {
-		snprintf(msg, sizeof(msg), "Aplikacja w tle, auto stoi.");
+		snprintf(msg, sizeof(msg), "%s", TR("Aplikacja w tle, auto stoi.", "App in the background, the car is stopped."));
 		tone = UI_TONE_BAD;
 	} else if (s->cat_active) {
-		snprintf(msg, sizeof(msg), "Tryb kot: auto jezdzi samo jeszcze %u s. Ruch pada przerywa.",
-		         s->cat_left_s);
+		if (g_ui_english)
+			snprintf(msg, sizeof(msg), "Cat mode: the car drives itself for %u s more. Any stick stops it.",
+			         s->cat_left_s);
+		else
+			snprintf(msg, sizeof(msg), "Tryb kot: auto jezdzi samo jeszcze %u s. Ruch pada przerywa.",
+			         s->cat_left_s);
 		tone = UI_TONE_BUSY;
 	} else if (s->cat_pending) {
-		snprintf(msg, sizeof(msg), "Tryb kot ruszy zaraz po polaczeniu.");
+		snprintf(msg, sizeof(msg), "%s", TR("Tryb kot ruszy zaraz po polaczeniu.", "Cat mode starts as soon as the car connects."));
 		tone = UI_TONE_BUSY;
 	} else if (s->driving && !s->pad_ok) {
-		snprintf(msg, sizeof(msg), "Nie widze pada, auto stoi. Tryb kot dziala bez pada.");
+		snprintf(msg, sizeof(msg), "%s",
+		         TR("Nie widze pada, auto stoi. Tryb kot dziala bez pada.",
+		            "No controller, the car is stopped. Cat mode works without one."));
 		tone = UI_TONE_BAD;
 	} else if (s->driving && s->holding) {
-		snprintf(msg, sizeof(msg), "Pusc gaz i skret, zeby ruszyc.");
+		snprintf(msg, sizeof(msg), "%s", TR("Pusc gaz i skret, zeby ruszyc.", "Release throttle and steering to drive."));
 		tone = UI_TONE_NEUTRAL;
 	} else if (s->battery_low) {
-		snprintf(msg, sizeof(msg), "Slaba bateria: naladuj modul, polaczenie moze sie zrywac.");
+		snprintf(msg, sizeof(msg), "%s",
+		         TR("Slaba bateria: naladuj modul, polaczenie moze sie zrywac.",
+		            "Low battery: charge the module, the connection may drop."));
 		tone = UI_TONE_BAD;
 	}
 	message(16, tone, msg);
@@ -305,19 +328,19 @@ void ui_draw_drive(const UiDrive *s) {
 		blank(r);
 
 	// Controls, two columns of key caps.
-	put(20, GAUGE_L, TEXT, BASE, "Sterowanie");
+	put(20, GAUGE_L, TEXT, BASE, "%s", TR("Sterowanie", "Controls"));
 	struct {
 		const char *k1, *k2, *what;
-	} left_col[] = {{"galka L", NULL, "gaz i wsteczny, plynnie"},
-	                {"D-pad", NULL, "skret (albo galki w bok)"},
+	} left_col[] = {{TR("galka L", "L stick"), NULL, TR("gaz i wsteczny, plynnie", "smooth throttle & reverse")},
+	                {"D-pad", NULL, TR("skret (albo galki w bok)", "steer (also sticks)")},
 	                {"B", NULL, "boost 100%"},
-	                {"X", NULL, "tryb kot"},
-	                {"-", "gora/dol", "prog ruszania"}},
-	  right_col[] = {{"ZR", "ZL", "pelny gaz / wsteczny"},
-	                 {"L", "R", "bieg nizej / wyzej"},
-	                 {"A", NULL, "swiatla"},
-	                 {"Y", NULL, "czuwanie"},
-	                 {"+", NULL, "rozlacz"}};
+	                {"X", NULL, TR("tryb kot", "cat mode")},
+	                {"-", TR("gora/dol", "up/down"), TR("prog ruszania", "start threshold")}},
+	  right_col[] = {{"ZR", "ZL", TR("pelny gaz / wsteczny", "full throttle / reverse")},
+	                 {"L", "R", TR("bieg nizej / wyzej", "gear down / up")},
+	                 {"A", NULL, TR("swiatla", "lights")},
+	                 {"Y", NULL, TR("czuwanie", "stay awake")},
+	                 {"+", NULL, TR("rozlacz", "disconnect")}};
 	for (int i = 0; i < 5; i++) {
 		int r = 22 + 2 * i;
 		blank(r);
@@ -331,15 +354,17 @@ void ui_draw_drive(const UiDrive *s) {
 			col = key(r, col, right_col[i].k2);
 		put(r, 56, TEXT, BASE, "%s", right_col[i].what);
 	}
-	put(32, 20, MUTED, BASE, "tryb kot: %d s, %d-%d%%", s->cat_seconds, s->cat_lo, s->cat_hi);
+	put(32, 20, MUTED, BASE, "%s: %d s, %d-%d%%", TR("tryb kot", "cat mode"), s->cat_seconds, s->cat_lo,
+	    s->cat_hi);
 	for (int r = 33; r <= 39; r++)
 		blank(r);
 
 	blank(40);
 	if (s->driving || s->writes)
 		put(40, GAUGE_L, MUTED, BASE,
-		    "ramki %u  bledy %u  co %.1f ms (p95 %.1f)  polaczono w %.0f ms  zerwania %u", s->writes,
-		    s->errors, s->period_p50, s->period_p95, s->connect_ms, s->reconnects);
+		    g_ui_english ? "frames %u  errors %u  every %.1f ms (p95 %.1f)  connect %.0f ms  drops %u"
+		                 : "ramki %u  bledy %u  co %.1f ms (p95 %.1f)  polaczono w %.0f ms  zerwania %u",
+		    s->writes, s->errors, s->period_p50, s->period_p95, s->connect_ms, s->reconnects);
 	blank(41);
 	blank(42);
 	if (s->ha && s->ha[0])
@@ -357,6 +382,6 @@ void ui_draw_error(const char *version, const char *message_text) {
 		blank(r);
 	put(4, 3, TEXT, BASE, "%s", message_text);
 	int c = key(7, 3, "+");
-	put(7, c, TEXT, BASE, "wyjdz");
+	put(7, c, TEXT, BASE, "%s", TR("wyjdz", "exit"));
 	put(44, UI_COLS - 1 - (int)strlen(version), MUTED, BASE, "%s", version);
 }

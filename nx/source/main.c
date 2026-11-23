@@ -17,7 +17,7 @@
 #include "log.h"
 #include "ui.h"
 
-#define VERSION "1.0.0"
+#define VERSION "1.1.0"
 #define SCAN_MS 4000
 #define COLS 79
 // 2026-11-22: at 6-14 % (reading jumps under load) the module dropped the
@@ -85,13 +85,28 @@ static void set_keep_awake(bool on) {
 static const char *phase_name(CarPhase p) {
 	switch (p) {
 	case CAR_IDLE:
-		return "Rozlaczone";
+		return TR("Rozlaczone", "Disconnected");
 	case CAR_CONNECTING:
-		return "Laczenie";
+		return TR("Laczenie", "Connecting");
 	case CAR_DRIVING:
-		return "Jazda";
+		return TR("Jazda", "Driving");
 	case CAR_WAIT_RETRY:
-		return "Ponawiam";
+		return TR("Ponawiam", "Retrying");
+	}
+	return "?";
+}
+
+// Stable state names for the HTTP API (documented in docs/switch.md).
+static const char *api_phase(CarPhase p) {
+	switch (p) {
+	case CAR_IDLE:
+		return "ROZLACZONE";
+	case CAR_CONNECTING:
+		return "LACZENIE";
+	case CAR_DRIVING:
+		return "JAZDA";
+	case CAR_WAIT_RETRY:
+		return "PONAWIAM";
 	}
 	return "?";
 }
@@ -100,22 +115,27 @@ static const char *ha_line(char *buf, size_t n) {
 	if (!http_running())
 		buf[0] = 0; // API off (default): nothing to show
 	else if (!g_ip[0])
-		snprintf(buf, n, "Home Assistant przez Switcha: brak Wi-Fi");
+		snprintf(buf, n, "%s", TR("API HTTP: brak Wi-Fi", "HTTP API: no Wi-Fi"));
 	else
-		snprintf(buf, n, "Home Assistant: http://%s:%d/cat/start%s   czuwanie %s", g_ip, g_cfg.http_port,
-		         g_cfg.token[0] ? "?token=..." : "", g_cfg.keep_awake ? "wlaczone" : "wylaczone");
+		snprintf(buf, n, "HTTP API: http://%s:%d/cat/start%s   %s %s", g_ip, g_cfg.http_port,
+		         g_cfg.token[0] ? "?token=..." : "", TR("czuwanie", "stay awake"),
+		         g_cfg.keep_awake ? TR("wlaczone", "on") : TR("wylaczone", "off"));
 	return buf;
 }
 
-static UiTone note_tone(const char *note) {
-	if (!strncmp(note, "Ostatnie auto", 13) || strstr(note, "niewidoczne") || strstr(note, "brak odczytu"))
-		return UI_TONE_BAD;
-	if (!strncmp(note, "Home Assistant", 14) || strstr(note, "pomiar baterii..."))
-		return UI_TONE_BUSY;
-	return UI_TONE_NEUTRAL;
+// The list screen's message line: text + its tone.
+static char g_note[112];
+static UiTone g_note_tone;
+
+static void note(UiTone tone, const char *pl, const char *en, ...) {
+	va_list a;
+	va_start(a, en);
+	vsnprintf(g_note, sizeof(g_note), TR(pl, en), a);
+	va_end(a);
+	g_note_tone = tone;
 }
 
-static void draw_list(const ScanEntry *cars, int n, int cursor, const char *note, unsigned frame) {
+static void draw_list(const ScanEntry *cars, int n, int cursor, unsigned frame) {
 	UiCar ui_cars[SCAN_MAX];
 	for (int i = 0; i < n && i < SCAN_MAX; i++) {
 		snprintf(ui_cars[i].name, sizeof(ui_cars[i].name), "%s", cars[i].name);
@@ -127,13 +147,17 @@ static void draw_list(const ScanEntry *cars, int n, int cursor, const char *note
 	char standby[96] = "", ha[128];
 	if (standby_enabled()) {
 		if (g_last_pct >= 0)
-			snprintf(standby, sizeof(standby), "Czuwanie: bateria auta sprawdzana co %d min, ostatnio %d%% (%.0f min temu)",
+			snprintf(standby, sizeof(standby),
+			         TR("Czuwanie: bateria auta sprawdzana co %d min, ostatnio %d%% (%.0f min temu)",
+			            "Standby: car battery checked every %d min, last %d%% (%.0f min ago)"),
 			         g_cfg.standby_minutes, g_last_pct, secs_since(g_last_pct_tick) / 60);
 		else
-			snprintf(standby, sizeof(standby), "Czuwanie: bateria auta sprawdzana co %d min", g_cfg.standby_minutes);
+			snprintf(standby, sizeof(standby),
+			         TR("Czuwanie: bateria auta sprawdzana co %d min", "Standby: car battery checked every %d min"),
+			         g_cfg.standby_minutes);
 	}
 	UiList l = {"Shell RC " VERSION, ui_cars, n, cursor, ble_scan_running(), ble_scan_other_count(),
-	            note, note_tone(note), standby, ha_line(ha, sizeof(ha)), frame};
+	            g_note, g_note_tone, standby, ha_line(ha, sizeof(ha)), frame};
 	ui_draw_list(&l);
 }
 
@@ -183,7 +207,7 @@ static void status_json(char *out, size_t n, Screen screen, const char *name, in
 	CarStatus s;
 	car_status(&s);
 	bool running = screen == SCREEN_DRIVE;
-	const char *state = running ? phase_name(s.phase) : probing ? "POMIAR" : "CZUWANIE";
+	const char *state = running ? api_phase(s.phase) : probing ? "POMIAR" : "CZUWANIE";
 	if (!running && !standby_enabled() && !probing)
 		state = "LISTA";
 	long age = g_last_pct >= 0 ? (long)secs_since(g_last_pct_tick) : -1;
@@ -214,6 +238,7 @@ int main(int argc, char **argv) {
 	log_open();
 	log_msg("Shell RC %s start, appletType=%d", VERSION, (int)appletGetAppletType());
 	config_load(&g_cfg);
+	g_ui_english = !strcmp(g_cfg.lang, "en");
 	bool sockets = false;
 	if ((g_cfg.http_port > 0 || __nxlink_host.s_addr != 0) && R_SUCCEEDED(socketInitializeDefault())) {
 		sockets = true;
@@ -226,11 +251,11 @@ int main(int argc, char **argv) {
 		set_keep_awake(true);
 
 	Screen screen = SCREEN_LIST;
-	char note[96] = "";
 	Result rc = ble_init();
 	if (R_FAILED(rc)) {
 		screen = SCREEN_ERROR;
-		snprintf(note, sizeof(note), "Bluetooth jest niedostepny (rc=0x%x). Wylacz i wlacz Switcha i sprobuj ponownie.", rc);
+		note(UI_TONE_BAD, "Bluetooth jest niedostepny (rc=0x%x). Uruchom Switcha ponownie i sprobuj jeszcze raz.",
+		     "Bluetooth is unavailable (rc=0x%x). Restart the Switch and try again.", rc);
 	} else {
 		ble_scan_start(SCAN_MS);
 	}
@@ -278,7 +303,7 @@ int main(int argc, char **argv) {
 					auto_connect = true;
 					if (!ble_scan_running())
 						ble_scan_start(SCAN_MS);
-					snprintf(note, sizeof(note), "Home Assistant: tryb kot, szukam auta...");
+					note(UI_TONE_BUSY, "Tryb kot z HTTP: szukam auta...", "Cat mode via HTTP: looking for the car...");
 					status_json(json, sizeof(json), screen, car_name, pending_cat_s, false);
 					http_respond(200, json);
 				} else {
@@ -300,7 +325,7 @@ int main(int argc, char **argv) {
 
 		if (screen == SCREEN_ERROR) {
 			if (redraw)
-				ui_draw_error("Shell RC " VERSION, note);
+				ui_draw_error("Shell RC " VERSION, g_note);
 			if (down & HidNpadButton_Plus)
 				break;
 		} else if (screen == SCREEN_LIST) {
@@ -329,13 +354,14 @@ int main(int argc, char **argv) {
 					probing = true;
 					probe_search = false;
 					probe_start = armGetSystemTick();
-					snprintf(note, sizeof(note), "Czuwanie: pomiar baterii...");
+					note(UI_TONE_BUSY, "Czuwanie: pomiar baterii...", "Standby: checking the battery...");
 				} else if (!ble_scan_running()) {
 					probe_search = false;
 					next_probe = ticks_in(g_cfg.standby_minutes * 60.0);
 					battery_csv(-1, "auto niewidoczne");
 					log_msg("czuwanie: auto niewidoczne (wylaczone albo rozladowane?)");
-					snprintf(note, sizeof(note), "Czuwanie: auto niewidoczne przy ostatnim pomiarze.");
+					note(UI_TONE_BAD, "Czuwanie: auto niewidoczne przy ostatnim pomiarze.",
+					     "Standby: the car was not visible at the last check.");
 				}
 			}
 			if (probing) {
@@ -348,10 +374,10 @@ int main(int argc, char **argv) {
 					next_probe = ticks_in(g_cfg.standby_minutes * 60.0);
 					if (got) {
 						remember_battery(ps.battery, "czuwanie");
-						snprintf(note, sizeof(note), "Czuwanie: bateria %d%%.", ps.battery);
+						note(UI_TONE_NEUTRAL, "Czuwanie: bateria %d%%.", "Standby: battery %d%%.", ps.battery);
 					} else {
 						battery_csv(-1, "brak odczytu");
-						snprintf(note, sizeof(note), "Czuwanie: brak odczytu baterii.");
+						note(UI_TONE_BAD, "Czuwanie: brak odczytu baterii.", "Standby: no battery reading.");
 					}
 				}
 			}
@@ -373,7 +399,8 @@ int main(int argc, char **argv) {
 						log_msg("tryb kot z HA: nie znaleziono auta");
 					pending_cat_s = 0;
 					ha_session = false;
-					snprintf(note, sizeof(note), "Ostatnie auto nie odpowiada - wybierz z listy.");
+					note(UI_TONE_BAD, "Ostatnie auto nie odpowiada - wybierz z listy.",
+					     "The last car does not answer - pick one from the list.");
 				}
 			}
 			if ((down & HidNpadButton_AnyDown) && cursor + 1 < ncars)
@@ -389,8 +416,14 @@ int main(int argc, char **argv) {
 			if (down & HidNpadButton_Y) {
 				auto_connect = false;
 				pending_cat_s = 0;
-				note[0] = 0;
+				g_note[0] = 0;
 				ble_scan_start(SCAN_MS);
+			}
+			if (down & HidNpadButton_ZL) {
+				g_ui_english = !g_ui_english;
+				strcpy(g_cfg.lang, g_ui_english ? "en" : "pl");
+				config_save(&g_cfg);
+				ui_clear();
 			}
 			if (down & HidNpadButton_Minus) {
 				set_keep_awake(!g_cfg.keep_awake);
@@ -416,7 +449,7 @@ int main(int argc, char **argv) {
 				continue;
 			}
 			if (redraw)
-				draw_list(cars, ncars, cursor, note, ++frame);
+				draw_list(cars, ncars, cursor, ++frame);
 		} else {
 			CarStatus s;
 			car_status(&s);
@@ -439,7 +472,7 @@ int main(int argc, char **argv) {
 				ha_session = false;
 				log_msg("HA: koniec trybu kot, rozlaczam (czuwanie)");
 				car_stop();
-				snprintf(note, sizeof(note), "Home Assistant: tryb kot zakonczony.");
+				note(UI_TONE_NEUTRAL, "Tryb kot z HTTP zakonczony.", "Cat mode via HTTP finished.");
 				screen = SCREEN_LIST;
 				next_probe = ticks_in(g_cfg.standby_minutes * 60.0);
 				ui_clear();
@@ -460,7 +493,7 @@ int main(int argc, char **argv) {
 				g_cfg.min_speed = s.min_speed;
 				g_cfg.gear = s.gear;
 				config_save(&g_cfg);
-				snprintf(note, sizeof(note), "Rozlaczono z %s.", car_name);
+				note(UI_TONE_NEUTRAL, "Rozlaczono z %s.", "Disconnected from %s.", car_name);
 				ha_session = false;
 				next_probe = ticks_in(g_cfg.standby_minutes * 60.0);
 				screen = SCREEN_LIST;

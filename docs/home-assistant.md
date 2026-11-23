@@ -1,105 +1,108 @@
-# Home Assistant: integracja `shell_rc`
+# Home Assistant: the `shell_rc` integration
 
-Home Assistant łączy się z autem przez własny Bluetooth (wbudowany albo proxy ESPHome).
-Switch nie jest do tego potrzebny. Integracja daje tryb kot (auto jeździ samo, losowo
-i wolno) oraz pilnuje baterii.
+**English** | [Polski](home-assistant.pl.md)
 
-Wymagania: Home Assistant 2025.2 lub nowszy z działającą integracją Bluetooth.
+Home Assistant connects to the car over its own Bluetooth (built-in or an ESPHome proxy).
+The Switch is not needed. The integration provides cat mode (the car drives by itself,
+randomly and slowly) and keeps an eye on the battery.
 
-## Instalacja
+Requirements: Home Assistant 2025.2 or newer with a working Bluetooth integration.
 
-**Z wydania:** rozpakuj `shell_rc-ha.zip` (zakładka Releases) do `/config/custom_components/`,
-żeby powstał katalog `/config/custom_components/shell_rc/`. Zrestartuj HA.
+## Installation
 
-**Przez HACS:** HACS → menu ⋮ → Własne repozytoria → adres tego repo, kategoria
-„Integration”. Potem pobierz „Shell RC” i zrestartuj HA.
+**From a release:** unzip `shell_rc-ha.zip` (Releases tab) into `/config/custom_components/`
+so that you get `/config/custom_components/shell_rc/`. Restart HA.
 
-**Z repo przez SSH** (dodatek „Terminal & SSH”): `make deploy-ha HA=adres-ha`.
+**With HACS:** HACS → ⋮ menu → Custom repositories → this repository's URL, category
+"Integration". Then download "Shell RC" and restart HA.
 
-Potem włącz auto: HA sam je wykryje (Ustawienia → Urządzenia i usługi → „Wykryto”), kliknij
-„Skonfiguruj”. Możesz też dodać je ręcznie: Dodaj integrację → „Shell RC”. Auto rozpoznawane
-jest po danych producenta w ogłoszeniu Bluetooth (firma `0x5254`, dane `00 3c`).
+**From the repository over SSH** (the "Terminal & SSH" add-on): `make deploy-ha HA=ha-address`.
 
-## Encje
+Then switch the car on: HA discovers it by itself (Settings → Devices & services →
+"Discovered"), click "Configure". You can also add it manually: Add integration →
+"Shell RC". The car is recognized by the manufacturer data in its Bluetooth advertisement
+(company `0x5254`, data `00 3c`).
 
-| encja | co robi |
+## Entities
+
+| entity | what it does |
 |---|---|
-| **Tryb kot** (przełącznik) | łączy się, jeździ losowo, po czasie sam się wyłącza i rozłącza |
-| Czas trybu kot, prędkość min / max | suwaki: domyślnie 120 s i 20–60% (pamiętane po restarcie) |
-| **Stop** (przycisk) | natychmiast kończy tryb kot |
-| **Bateria** (%) | ostatni odczyt (pamiętany po restarcie) |
-| Sprawdź baterię (przycisk) | łączy się na chwilę i czyta baterię |
-| Pomiar baterii (czas) | kiedy był ostatni odczyt |
-| **Widoczne** | czy auto się ogłasza (włączone i w zasięgu) w ostatnich 2 minutach |
-| Ostatnio widziane (czas) | ostatnie ogłoszenie, z dokładnością do minuty |
-| Stan | czeka / łączenie / tryb kot / pomiar baterii / niedostępne / błąd (z atrybutem `last_error`) |
-| Światła | czy światła mają być włączone w trakcie jazdy |
-| Połączone, Siła sygnału | diagnostyka (siła sygnału domyślnie wyłączona) |
+| **Cat mode** (switch) | connects, drives randomly, turns itself off and disconnects when the time is up |
+| Cat mode duration, minimum / maximum speed | sliders: 120 s and 20–60% by default (kept across restarts) |
+| **Stop** (button) | ends cat mode immediately |
+| **Battery** (%) | last reading (kept across restarts) |
+| Check battery (button) | connects briefly and reads the battery |
+| Battery checked (timestamp) | when the last reading was taken |
+| **Visible** | whether the car advertised (on and in range) in the last 2 minutes |
+| Last seen (timestamp) | the last advertisement, to the minute |
+| Status | idle / connecting / cat mode / checking battery / unreachable / error (with a `last_error` attribute) |
+| Lights | whether the lights are on while driving |
+| Connected, Signal strength | diagnostics (signal strength is disabled by default) |
 
-**Opcje:** co ile minut sprawdzać baterię (domyślnie 30, `0` = wyłączone). Pomiar odbywa
-się tylko wtedy, gdy auto jest widoczne. Trwa od 1 do 75 s, potem integracja się rozłącza.
+**Options:** how often to check the battery, in minutes (30 by default, `0` = off). A check
+only happens while the car is visible. It takes 1 to 75 s, then the integration disconnects.
 
-Poza sesjami integracja jest **rozłączona**, więc „Połączone: nie” to normalny stan. Moduł
-przyjmuje jedno połączenie naraz: kiedy jeździsz Switchem, HA pokaże „Niedostępne” albo
-„Błąd” i spróbuje znowu przy następnej okazji. Nic złego się nie dzieje.
+Outside of sessions the integration is **disconnected**, so "Connected: off" is normal. The
+module accepts one connection at a time: while you drive with the Switch, HA shows
+"Unreachable" or "Error" and tries again next time. Nothing bad happens.
 
-## Bateria w czuwaniu
+## Battery in standby
 
-Włączony moduł traci około **4% na godzinę**, więc wytrzymuje mniej więcej dobę (zmierzone
-na module Marvel 2026 z pomiarem co 30 minut). Historia encji **Bateria** i **Widoczne**
-pokaże to u Ciebie. Odczyty w trakcie jazdy bywają zaniżone (spadek napięcia pod obciążeniem).
-Wiarygodne są odczyty w spoczynku.
+A switched-on module loses about **4% per hour**, so it lasts roughly a day (measured on a
+Marvel 2026 module with a check every 30 minutes). The history of the **Battery** and
+**Visible** entities will show it for your car. Readings taken while driving can be low
+(voltage sag under load). Readings at rest are the reliable ones.
 
-## Automatyzacje
+## Automations
 
-Kot pacnął czujnik drgań (np. Aqara Vibration Sensor na drapaku):
+The cat hit a vibration sensor (e.g. an Aqara Vibration Sensor on the scratching post):
 
 ```yaml
 automation:
-  - alias: "Kot się bawi - auto rusza"
+  - alias: "Cat is playing - car starts"
     triggers:
       - trigger: state
-        entity_id: binary_sensor.drapak_wibracja
+        entity_id: binary_sensor.scratching_post_vibration
         to: "on"
     conditions:
       - condition: state
-        entity_id: binary_sensor.qcar_xxxxxx_widoczne
+        entity_id: binary_sensor.qcar_xxxxxx_visible
         state: "on"
       - condition: state
-        entity_id: switch.qcar_xxxxxx_tryb_kot
+        entity_id: switch.qcar_xxxxxx_cat_mode
         state: "off"
     actions:
       - action: switch.turn_on
         target:
-          entity_id: switch.qcar_xxxxxx_tryb_kot
+          entity_id: switch.qcar_xxxxxx_cat_mode
     mode: single
 ```
 
-Słaba bateria:
+Low battery:
 
 ```yaml
 automation:
-  - alias: "Autko - słaba bateria"
+  - alias: "Car - low battery"
     triggers:
       - trigger: numeric_state
-        entity_id: sensor.qcar_xxxxxx_bateria
+        entity_id: sensor.qcar_xxxxxx_battery
         below: 20
     actions:
       - action: notify.notify
         data:
-          message: "Autko ma {{ states('sensor.qcar_xxxxxx_bateria') }}% baterii"
+          message: "The car has {{ states('sensor.qcar_xxxxxx_battery') }}% battery"
 ```
 
-Identyfikatory encji zależą od nazwy auta i języka HA. Sprawdź je w ustawieniach urządzenia.
+Entity IDs depend on the car name and the HA language. Check them in the device settings.
 
-## Zasięg i problemy
+## Range and troubleshooting
 
-- **„Widoczne: nie”, choć auto jest włączone:** HA nie słyszy ogłoszeń. Przenieś auto
-  bliżej albo postaw w tym pokoju proxy Bluetooth (ESP32 z ESPHome,
-  `bluetooth_proxy: active: true`). HA sam wybierze adapter z lepszym sygnałem. Około −80 dBm
-  to granica.
-- **Stan „Niedostępne” / „Błąd” przy starcie trybu kot:** auto jest połączone z innym
-  urządzeniem (Switch, telefon), wyłączone albo poza zasięgiem.
-- **Sesja się urywa:** słaby sygnał albo słaba bateria (poniżej ~15% moduł zrywa łącze).
+- **"Visible: off" although the car is on:** HA doesn't hear the advertisements. Move the
+  car closer, or put a Bluetooth proxy in that room (an ESP32 with ESPHome,
+  `bluetooth_proxy: active: true`). HA picks the adapter with the better signal by itself.
+  About −80 dBm is the limit.
+- **Status "Unreachable" / "Error" when cat mode starts:** the car is connected to another
+  device (Switch, phone), switched off, or out of range.
+- **The session cuts out:** weak signal or low battery (below ~15% the module drops the link).
 
-Logi: Ustawienia → System → Dzienniki, filtr `shell_rc`.
+Logs: Settings → System → Logs, filter `shell_rc`.

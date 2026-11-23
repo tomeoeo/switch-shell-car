@@ -1,16 +1,18 @@
 ---
 name: Problem / bug
-about: Coś nie działa w aplikacji na Switcha albo w integracji Home Assistant
+about: Something doesn't work in the Switch app or the Home Assistant integration
 labels: bug
 ---
 
-**Co się dzieje i czego oczekiwałeś**
+<!-- English or Polish is fine. / Można po polsku. -->
+
+**What happens and what you expected**
 
 
-**Gdzie:** Switch (wersja aplikacji, wersja HOS/Atmosphère) / Home Assistant (wersja HA, wersja integracji)
+**Where:** Switch (app version, HOS/Atmosphère version) / Home Assistant (HA version, integration version)
 
-**Auto / moduł:** seria (np. Marvel 2026), nazwa `QCAR-…`, złącze (USB-C / micro-USB)
+**Car / module:** series (e.g. Marvel 2026), `QCAR-…` name, connector (USB-C / micro-USB)
 
 **Log**
 - Switch: `sdmc:/switch/shellrc/shellrc.log`
-- Home Assistant: Ustawienia → System → Dzienniki, filtr `shell_rc`
+- Home Assistant: Settings → System → Logs, filter `shell_rc`

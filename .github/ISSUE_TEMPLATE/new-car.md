@@ -1,16 +1,18 @@
 ---
-name: Inne auto / moduł
-about: Twoje auto Shell (albo inna seria) nie jest wykrywane lub jeździ inaczej
+name: Other car / module (Inne auto / moduł)
+about: Your Shell car (or another series) isn't detected or drives differently
 labels: compatibility
 ---
 
-**Seria i rok** (np. Shell Motorsport 2021, Racing Legends 2024):
+<!-- English or Polish is fine. / Można po polsku. -->
 
-**Nazwa w Bluetooth** (np. `QCAR-1A2B3C`, `SL-…`) i złącze ładowania:
+**Series and year** (e.g. Shell Motorsport 2021, Racing Legends 2024):
 
-**Co działa, a co nie:**
+**Bluetooth name** (e.g. `QCAR-1A2B3C`, `SL-…`) and charging connector:
 
-**Diagnostyka** (bardzo pomaga):
-- `scan.txt` z narzędzia `research/shellscan` (instrukcja w `research/README.md`), albo
-- zrzut z aplikacji BLE na telefonie (np. nRF Connect / LightBlue): ogłoszenie i lista
-  serwisów i charakterystyk z właściwościami.
+**What works and what doesn't:**
+
+**Diagnostics** (helps a lot):
+- `scan.txt` from the `research/shellscan` tool (instructions in `research/README.md`), or
+- a capture from a BLE app on your phone (e.g. nRF Connect / LightBlue): the advertisement
+  and the list of services and characteristics with their properties.

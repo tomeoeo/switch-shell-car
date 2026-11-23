@@ -8,6 +8,10 @@
 #define UI_COLS 80
 #define UI_ROWS 45
 
+// UI language: false = Polish, true = English. TR picks the right string.
+extern bool g_ui_english;
+#define TR(pl, en) (g_ui_english ? (en) : (pl))
+
 typedef enum { UI_TONE_OK, UI_TONE_BUSY, UI_TONE_BAD, UI_TONE_NEUTRAL } UiTone;
 
 typedef struct {

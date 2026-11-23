@@ -1,15 +1,17 @@
-Sterowanie autkami Shell RC (moduł BLE z serii Marvel 2026) z Nintendo Switcha
-i z Home Assistanta. Zmiany: [CHANGELOG.md](https://github.com/tomeoeo/switch-shell-car/blob/v1.0.0/CHANGELOG.md).
+Drive Shell RC toy cars (BLE module, Marvel 2026 series) from a Nintendo Switch and from
+Home Assistant. Changes: [CHANGELOG.md](https://github.com/tomeoeo/switch-shell-car/blob/main/CHANGELOG.md).
+Polski: [README.pl.md](https://github.com/tomeoeo/switch-shell-car/blob/main/README.pl.md).
 
 **Switch** (`shellrc.nro`, homebrew, Atmosphère):
 
-1. Skopiuj `shellrc.nro` na kartę SD do `/switch/shellrc/shellrc.nro`.
-2. Uruchom hbmenu w trybie aplikacji: przytrzymaj R przy starcie dowolnej gry.
-3. Wybierz **Shell RC**. Auto musi być włączone i niepołączone z telefonem.
+1. Copy `shellrc.nro` to the SD card as `/switch/shellrc/shellrc.nro`.
+2. Start hbmenu in application mode: hold R while launching any game.
+3. Pick **Shell RC**. The car must be on and not connected to a phone.
+   ZL on the car list switches the language (English / Polish).
 
 **Home Assistant** (`shell_rc-ha.zip`):
 
-1. Rozpakuj do `/config/custom_components/`, żeby powstało `/config/custom_components/shell_rc/`.
-2. Zrestartuj HA. Auto pojawi się jako wykryte urządzenie.
+1. Unzip into `/config/custom_components/` so that you get `/config/custom_components/shell_rc/`.
+2. Restart HA. The car shows up as a discovered device.
 
-Moduł przyjmuje jedno połączenie naraz: kiedy jeździsz Switchem, HA czeka.
+The module accepts one connection at a time: while you drive with the Switch, HA waits.

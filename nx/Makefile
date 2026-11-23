@@ -44,7 +44,7 @@ DATA		:=	data
 INCLUDES	:=	include
 APP_TITLE	:=	Shell RC
 APP_AUTHOR	:=	tomeoeo
-APP_VERSION	:=	1.0.0
+APP_VERSION	:=	1.1.0
 
 #---------------------------------------------------------------------------------
 # options for code generation

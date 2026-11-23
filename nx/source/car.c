@@ -11,6 +11,7 @@
 #include "config.h"
 #include "log.h"
 #include "pad.h"
+#include "ui.h"
 
 #define TICK_NS 10000000ULL // 10 ms, like the official app
 #define GAP_MS 200.0        // a longer loop stall means we were suspended
@@ -82,7 +83,7 @@ static void car_thread(void *arg) {
 	u64 retry_at = 0;
 	bool first_connect = true;
 
-	set_phase(CAR_CONNECTING, "laczenie...");
+	set_phase(CAR_CONNECTING, TR("laczenie...", "connecting..."));
 	while (!g_stop) {
 		CarPhase phase = g_st.phase;
 
@@ -91,7 +92,7 @@ static void car_thread(void *arg) {
 				svcSleepThread(50000000ULL);
 				continue;
 			}
-			set_phase(CAR_CONNECTING, "ponowne laczenie...");
+			set_phase(CAR_CONNECTING, TR("ponowne laczenie...", "reconnecting..."));
 			continue;
 		}
 
@@ -107,7 +108,7 @@ static void car_thread(void *arg) {
 					backoff++;
 				retry_at = armGetSystemTick() + armNsToTicks((u64)wait * 1000000ULL);
 				char msg[96];
-				snprintf(msg, sizeof(msg), "%s, ponowna proba za %.1f s", err, wait / 1000.0);
+				snprintf(msg, sizeof(msg), TR("%s, ponowna proba za %.1f s", "%s, retrying in %.1f s"), err, wait / 1000.0);
 				set_phase(CAR_WAIT_RETRY, msg);
 				continue;
 			}
@@ -126,7 +127,7 @@ static void car_thread(void *arg) {
 			mutexUnlock(&g_lock);
 			first_connect = false;
 			g_link_valid = true;
-			set_phase(CAR_DRIVING, "jazda");
+			set_phase(CAR_DRIVING, TR("jazda", "driving"));
 			continue;
 		}
 
@@ -260,7 +261,7 @@ static void car_thread(void *arg) {
 				}
 				log_msg("polaczenie zerwane (bledow z rzedu %u)", errors_in_row);
 				retry_at = armGetSystemTick() + armNsToTicks(500000000ULL);
-				set_phase(CAR_WAIT_RETRY, "polaczenie zerwane, ponowne laczenie...");
+				set_phase(CAR_WAIT_RETRY, TR("polaczenie zerwane, ponowne laczenie...", "connection lost, reconnecting..."));
 				break;
 			}
 		}
@@ -280,7 +281,7 @@ static void car_thread(void *arg) {
 	g_st.cat_active = false;
 	g_st.cat_pending = false;
 	mutexUnlock(&g_lock);
-	set_phase(CAR_IDLE, "rozlaczono");
+	set_phase(CAR_IDLE, TR("rozlaczono", "disconnected"));
 }
 
 void car_start(const BtdrvAddress *addr, const CarSettings *s) {
@@ -312,7 +313,7 @@ void car_start(const BtdrvAddress *addr, const CarSettings *s) {
 		rc = threadStart(&g_thread);
 	if (R_FAILED(rc)) {
 		log_msg("car thread rc=0x%x", rc);
-		set_phase(CAR_IDLE, "nie udalo sie uruchomic watku");
+		set_phase(CAR_IDLE, TR("nie udalo sie uruchomic watku", "could not start the car thread"));
 		return;
 	}
 	g_thread_live = true;
