@@ -6,6 +6,7 @@ import asyncio
 from unittest.mock import MagicMock, patch
 
 from bleak.backends.device import BLEDevice
+from bleak.exc import BleakError
 from bleak.backends.scanner import AdvertisementData
 import pytest
 
@@ -53,17 +54,39 @@ def service_info(address: str = ADDRESS, mfr: dict | None = None) -> BluetoothSe
     )
 
 
+class FakeServices:
+    def __init__(self, uuids: set[str]) -> None:
+        self._uuids = uuids
+
+    def get_characteristic(self, uuid):
+        return object() if uuid in self._uuids else None
+
+
 class FakeClient:
     """Records writes; sends a battery notify shortly after subscribing."""
 
-    def __init__(self, battery: bytes | None = BATTERY_72) -> None:
+    def __init__(
+        self,
+        battery: bytes | None = BATTERY_72,
+        uuids: set[str] | None = None,
+        notify_error: Exception | None = None,
+    ) -> None:
         self.writes: list[bytes] = []
         self.is_connected = True
         self.disconnected = False
+        self.cache_cleared = False
+        self.services = FakeServices({CONTROL_UUID, BATTERY_UUID} if uuids is None else uuids)
         self._battery = battery
+        self._notify_error = notify_error
+
+    async def clear_cache(self):
+        self.cache_cleared = True
+        return True
 
     async def start_notify(self, uuid, cb):
         assert uuid == BATTERY_UUID
+        if self._notify_error is not None:
+            raise self._notify_error
         if self._battery is not None:
             asyncio.get_running_loop().call_later(0.05, cb, None, bytearray(self._battery))
 
@@ -104,12 +127,14 @@ async def test_user_flow_no_devices(hass: HomeAssistant, mock_bluetooth) -> None
     assert result["reason"] == "no_devices_found"
 
 
-async def _setup(hass: HomeAssistant, client: FakeClient | None) -> MockConfigEntry:
+async def _setup(hass: HomeAssistant, client: FakeClient | list[FakeClient] | None) -> MockConfigEntry:
+    """client: one client for every connection, or a list handed out in order."""
     entry = MockConfigEntry(domain=DOMAIN, title="QCAR-B5FDA2", data={CONF_ADDRESS: ADDRESS}, unique_id=ADDRESS)
     entry.add_to_hass(hass)
+    queue = list(client) if isinstance(client, list) else None
 
     async def fake_connect(*args, **kwargs):
-        return client
+        return queue.pop(0) if queue is not None else client
 
     p1 = patch.object(car_mod, "establish_connection", side_effect=fake_connect)
     p2 = patch.object(
@@ -192,6 +217,55 @@ async def test_unreachable(hass: HomeAssistant, mock_bluetooth) -> None:
     assert not car.cat_active
     assert _state(hass, "sensor", "status").state == "unreachable"
     assert _state(hass, "switch", "cat_mode").state == "off"
+
+
+async def _battery_check_until_idle(hass: HomeAssistant, car) -> None:
+    car.last_seen = car_mod.dt_util.utcnow()  # visible
+    car.async_check_battery()
+    for _ in range(100):
+        await asyncio.sleep(0.02)
+        if car._task.done():
+            break
+    await hass.async_block_till_done()
+
+
+async def test_stale_service_cache_is_cleared(hass: HomeAssistant, mock_bluetooth) -> None:
+    """Incomplete GATT services: clear the cache, disconnect, connect again."""
+    stale = FakeClient(uuids={CONTROL_UUID})
+    good = FakeClient()
+    entry = await _setup(hass, [stale, good])
+    await _battery_check_until_idle(hass, entry.runtime_data)
+    assert stale.cache_cleared and stale.disconnected and not stale.writes
+    assert good.disconnected
+    assert _state(hass, "sensor", "battery").state == "72"
+    assert _state(hass, "sensor", "status").state == "idle"
+
+
+async def test_stale_service_cache_twice(hass: HomeAssistant, mock_bluetooth) -> None:
+    first, second = FakeClient(uuids=set()), FakeClient(uuids=set())
+    entry = await _setup(hass, [first, second])
+    car = entry.runtime_data
+    await _battery_check_until_idle(hass, car)
+    assert first.disconnected and second.disconnected
+    assert first.cache_cleared and second.cache_cleared
+    assert not car.connected
+    assert _state(hass, "sensor", "status").state == "unreachable"
+
+
+async def test_setup_failure_releases_the_car(hass: HomeAssistant, mock_bluetooth) -> None:
+    """A failure right after connecting must not leave the module connected to HA."""
+    client = FakeClient(notify_error=BleakError("Characteristic was not found!"))
+    entry = await _setup(hass, client)
+    car = entry.runtime_data
+    car.async_start_cat(5)
+    for _ in range(100):
+        await asyncio.sleep(0.02)
+        if car._task.done():
+            break
+    await hass.async_block_till_done()
+    assert client.disconnected and client.cache_cleared
+    assert not car.connected and not car.cat_active
+    assert _state(hass, "sensor", "status").state == "error"
 
 
 async def test_numbers_keep_min_le_max(hass: HomeAssistant, mock_bluetooth) -> None:

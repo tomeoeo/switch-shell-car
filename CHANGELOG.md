@@ -1,5 +1,23 @@
 # Changelog / Zmiany
 
+## 1.1.1 — 2026-11-25
+
+Home Assistant only; the Switch app is unchanged (still 1.1.0).
+
+### English
+- Fixed: after a failed connection HA could no longer reach the car until it was restarted
+  ("Characteristic …9601 was not found!" in the log). An incomplete GATT service list got
+  cached, and a failure right after connecting left the module connected to HA, so it stopped
+  advertising. Now the cache is cleared and the car is always released, and the integration
+  tries once more with a fresh service discovery.
+
+### Polski
+- Naprawione: po nieudanym połączeniu HA nie mógł się już połączyć z autem aż do restartu
+  („Characteristic …9601 was not found!” w logu). Niepełna lista usług GATT trafiała do
+  cache, a błąd tuż po połączeniu zostawiał moduł połączony z HA, więc przestawał się
+  ogłaszać. Teraz cache jest czyszczony, auto zawsze zwalniane, a integracja próbuje jeszcze
+  raz ze świeżym odczytem usług.
+
 ## 1.1.0 — 2026-11-23
 
 ### English

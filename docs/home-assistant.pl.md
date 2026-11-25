@@ -103,5 +103,7 @@ Identyfikatory encji zależą od nazwy auta i języka HA. Sprawdź je w ustawien
 - **Stan „Niedostępne” / „Błąd” przy starcie trybu kot:** auto jest połączone z innym
   urządzeniem (Switch, telefon), wyłączone albo poza zasięgiem.
 - **Sesja się urywa:** słaby sygnał albo słaba bateria (poniżej ~15% moduł zrywa łącze).
+- **„Characteristic … was not found” w logu:** auto zwróciło niepełną listę usług. Od 1.1.1
+  integracja sama czyści cache i próbuje ponownie; wcześniej pomagał tylko restart HA.
 
 Logi: Ustawienia → System → Dzienniki, filtr `shell_rc`.

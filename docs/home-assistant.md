@@ -104,5 +104,8 @@ Entity IDs depend on the car name and the HA language. Check them in the device 
 - **Status "Unreachable" / "Error" when cat mode starts:** the car is connected to another
   device (Switch, phone), switched off, or out of range.
 - **The session cuts out:** weak signal or low battery (below ~15% the module drops the link).
+- **"Characteristic … was not found" in the log:** the car returned an incomplete service
+  list. Since 1.1.1 the integration clears its cache and retries by itself; before that only
+  an HA restart helped.
 
 Logs: Settings → System → Logs, filter `shell_rc`.

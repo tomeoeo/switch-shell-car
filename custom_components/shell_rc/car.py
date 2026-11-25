@@ -46,6 +46,14 @@ class CarUnreachable(Exception):
     """No connectable advertisement / connection failed."""
 
 
+def _has_characteristics(client: BleakClient) -> bool:
+    try:
+        services = client.services
+        return all(services.get_characteristic(uuid) is not None for uuid in (CONTROL_UUID, BATTERY_UUID))
+    except Exception:  # noqa: BLE001 - no service list at all counts as incomplete
+        return False
+
+
 class ShellRcCar:
     """State + BLE logic for one car. Entities subscribe with add_listener."""
 
@@ -191,21 +199,54 @@ class ShellRcCar:
             raise CarUnreachable("auto nie jest widoczne (wylaczone albo poza zasiegiem)")
         self.status = STATUS_CONNECTING
         self._changed()
-        client = await establish_connection(
-            BleakClientWithServiceCache,
-            device,
-            self.name,
-            disconnected_callback=self._on_disconnect,
-            max_attempts=3,
-        )
-        self.connected = True
-        self.last_seen = dt_util.utcnow()  # it answered, so it is here
-        self._battery_event.clear()
-        await client.start_notify(BATTERY_UUID, self._on_notify)
-        # Always start from neutral.
-        await self._write(client, neutral(self.lights))
+        # Two tries: when service discovery comes back incomplete (the module
+        # was still busy, or the link dropped mid-discovery), that incomplete
+        # list gets cached and every later connection fails with
+        # "Characteristic ... was not found" until HA restarts. Drop the cache
+        # and connect again with a fresh discovery.
+        for attempt in (1, 2):
+            client = await establish_connection(
+                BleakClientWithServiceCache,
+                device,
+                self.name,
+                disconnected_callback=self._on_disconnect,
+                max_attempts=3,
+            )
+            # From here on the car is ours: any failure must disconnect, or the
+            # module (one connection at a time) stays taken and stops advertising.
+            try:
+                if _has_characteristics(client):
+                    self.connected = True
+                    self.last_seen = dt_util.utcnow()  # it answered, so it is here
+                    self._battery_event.clear()
+                    await client.start_notify(BATTERY_UUID, self._on_notify)
+                    # Always start from neutral.
+                    await self._write(client, neutral(self.lights))
+                    self._changed()
+                    return client
+            except Exception:
+                await self._abandon(client, clear_cache=True)
+                raise
+            except BaseException:  # cancelled while setting up
+                await self._abandon(client, clear_cache=False)
+                raise
+            _LOGGER.debug("%s: incomplete GATT services (try %s), clearing the cache", self.name, attempt)
+            await self._abandon(client, clear_cache=True)
+        raise CarUnreachable("auto nie pokazalo charakterystyk BLE (cache uslug wyczyszczony)")
+
+    async def _abandon(self, client: BleakClient, clear_cache: bool) -> None:
+        """Let go of a connection that never became a session."""
+        if clear_cache:
+            try:
+                await client.clear_cache()
+            except Exception:  # noqa: BLE001 - best effort
+                pass
+        try:
+            await client.disconnect()
+        except Exception:  # noqa: BLE001
+            pass
+        self.connected = False
         self._changed()
-        return client
 
     @callback
     def _on_disconnect(self, _client: BleakClient) -> None:
